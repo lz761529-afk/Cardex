@@ -7,6 +7,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Cardex">
 <title>Cardex</title>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   :root {
@@ -24,6 +30,31 @@
     }
   }
   body { font-family:var(--font); background:var(--bg-tertiary); color:var(--text-primary); min-height:100vh; }
+
+  /* ── Login screen ── */
+  #login-screen {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:40px 20px; background:var(--bg-tertiary);
+  }
+  .login-card {
+    background:var(--bg-primary); border:0.5px solid var(--border-mid);
+    border-radius:var(--radius-xl); padding:44px 40px; width:100%; max-width:360px;
+    text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.1);
+  }
+  .login-logo { font-size:36px; margin-bottom:8px; }
+  .login-title { font-size:24px; font-weight:600; color:var(--text-primary); margin-bottom:6px; letter-spacing:-0.5px; }
+  .login-sub { font-size:14px; color:var(--text-secondary); line-height:1.6; margin-bottom:32px; }
+  .google-btn {
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    width:100%; padding:13px 20px; border:0.5px solid var(--border-mid);
+    border-radius:var(--radius-lg); background:var(--bg-primary); color:var(--text-primary);
+    font-size:15px; font-weight:500; cursor:pointer; font-family:var(--font);
+    transition:all 0.15s; box-shadow:0 1px 4px rgba(0,0,0,0.08);
+  }
+  .google-btn:hover { background:var(--bg-secondary); border-color:var(--border-strong); box-shadow:0 2px 8px rgba(0,0,0,0.12); }
+  .google-btn svg { flex-shrink:0; }
+  .login-note { font-size:11px; color:var(--text-tertiary); margin-top:20px; line-height:1.6; }
+
   #app { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
   /* Topbar — two rows */
@@ -42,6 +73,10 @@
   .topbar-btn:hover { color:var(--text-primary); border-color:var(--border-strong); }
   .topbar-btn.danger { color:#c23030; border-color:rgba(194,48,48,0.35); background:rgba(194,48,48,0.06); }
   .topbar-btn.danger:hover { background:rgba(194,48,48,0.12); }
+  .user-btn { display:flex; align-items:center; gap:7px; padding:6px 10px 6px 6px; font-size:12px; font-weight:500; border:0.5px solid var(--border-mid); background:var(--bg-secondary); color:var(--text-secondary); border-radius:var(--radius-md); cursor:pointer; font-family:var(--font); transition:all 0.15s; margin-left:auto; flex-shrink:0; }
+  .user-btn:hover { color:var(--text-primary); border-color:var(--border-strong); }
+  .user-avatar { width:22px; height:22px; border-radius:50%; object-fit:cover; }
+  .user-avatar-placeholder { width:22px; height:22px; border-radius:50%; background:var(--border-mid); display:flex; align-items:center; justify-content:center; font-size:11px; }
 
   /* Nav */
   .nav-tabs { background:var(--bg-primary); border-bottom:0.5px solid var(--border-light); padding:0 20px; display:flex; gap:2px; flex-shrink:0; overflow-x:auto; scrollbar-width:none; }
@@ -84,7 +119,6 @@
   .card-delete-btn:hover { background:rgba(194,48,48,0.85); }
   .card:hover .card-delete-btn { display:flex; }
   .delete-mode .card .card-delete-btn { display:none; }
-
 
   /* Checkbox in delete mode */
   .card-checkbox { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:5px; border:2px solid white; background:rgba(0,0,0,0.3); display:none; align-items:center; justify-content:center; z-index:10; pointer-events:none; }
@@ -250,7 +284,23 @@
 </style>
 </head>
 <body>
-<div id="app">
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">✦</div>
+    <div class="login-title">Cardex</div>
+    <div class="login-sub">Your personal knowledge library.<br>Sign in to sync cards across all your devices.</div>
+    <button class="google-btn" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+    <div class="login-note">Only your Google account can access your cards.<br>Data is stored securely in the cloud.</div>
+  </div>
+</div>
+
+<!-- Main app (hidden until signed in) -->
+<div id="app" style="display:none">
   <div class="topbar">
     <div class="topbar-row1">
       <h1>✦ Cardex</h1>
@@ -262,6 +312,10 @@
     <div class="topbar-row2">
       <button class="topbar-btn" id="delete-mode-btn" onclick="toggleDeleteMode()">🗑 Select</button>
       <button class="topbar-btn" onclick="openCatModal()">⚙ Categories</button>
+      <button class="user-btn" id="user-btn" onclick="signOutUser()">
+        <div class="user-avatar-placeholder" id="user-avatar-placeholder">👤</div>
+        <span id="user-name-label">Sign out</span>
+      </button>
     </div>
   </div>
   <div class="delete-mode-bar hidden" id="delete-mode-bar">
@@ -290,6 +344,105 @@
 </div>
 
 <script>
+/* ── Firebase setup ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyBWYLrSHmwhDMkv5oZXXwksIj26ODIHmJo",
+  authDomain: "cardex-a6392.firebaseapp.com",
+  projectId: "cardex-a6392",
+  storageBucket: "cardex-a6392.firebasestorage.app",
+  messagingSenderId: "23977793239",
+  appId: "1:23977793239:web:805cf1105e2e9481e00292"
+};
+firebase.initializeApp(firebaseConfig);
+const fauth  = firebase.auth();
+const fstore = firebase.firestore();
+
+let currentUser = null;
+let unsubCards  = null;
+
+const userRef     = () => fstore.collection('users').doc(currentUser.uid);
+const cardsRef    = () => userRef().collection('cards');
+const notesRef    = () => userRef().collection('notes');
+const chatsRef    = () => userRef().collection('chats');
+const settingsRef = () => userRef().collection('settings');
+
+function signInWithGoogle() {
+  fauth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e => alert('Sign-in error: ' + e.message));
+}
+function signOutUser() {
+  if (!confirm('Sign out?')) return;
+  fauth.signOut();
+}
+
+fauth.onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    // Update user button
+    const nameLabel = document.getElementById('user-name-label');
+    const avatarEl  = document.getElementById('user-avatar-placeholder');
+    if (nameLabel) nameLabel.textContent = (user.displayName || 'Sign out').split(' ')[0];
+    if (avatarEl && user.photoURL) {
+      avatarEl.outerHTML = `<img class="user-avatar" id="user-avatar-placeholder" src="${user.photoURL}" alt="avatar">`;
+    }
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    await loadSettings();
+    setupCardSync();
+    checkApiKey();
+  } else {
+    currentUser = null;
+    if (unsubCards) { unsubCards(); unsubCards = null; }
+    db = []; notes = {}; chatHistories = {}; customCats = {};
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+async function loadSettings() {
+  try {
+    const snap = await settingsRef().doc('customCats').get();
+    if (snap.exists) {
+      customCats = snap.data().data || {};
+      // Re-populate PERSON_CATS from loaded custom cats
+      Object.entries(customCats).forEach(([name, cfg]) => {
+        if (cfg.isPerson) PERSON_CATS.add(name);
+      });
+    }
+  } catch(e) { console.error('loadSettings error', e); }
+}
+
+function setupCardSync() {
+  let initialLoadDone = false;
+  unsubCards = cardsRef().onSnapshot(snap => {
+    db = snap.docs.map(d => d.data());
+    db.sort((a, b) => Number(b.id) - Number(a.id));
+    renderAll();
+    if (!initialLoadDone) {
+      initialLoadDone = true;
+      autoFetchMissingImages();
+    }
+  }, err => console.error('Sync error:', err));
+}
+
+/* ── Firestore helpers ── */
+async function fsAddCard(card)      { await cardsRef().doc(card.id).set(card); }
+async function fsUpdateCard(card)   { await cardsRef().doc(card.id).set(card); }
+async function fsDeleteCard(id)     { await Promise.all([cardsRef().doc(id).delete(), notesRef().doc(id).delete(), chatsRef().doc(id).delete()]); }
+async function fsSaveNote(id, text) { await notesRef().doc(id).set({ text }); }
+async function fsSaveChat(id, msgs) { await chatsRef().doc(id).set({ messages: msgs }); }
+async function fsSaveCats()         { await settingsRef().doc('customCats').set({ data: customCats }); }
+
+async function loadNoteAndChat(cardId) {
+  const [nd, cd] = await Promise.all([
+    notesRef().doc(cardId).get(),
+    chatsRef().doc(cardId).get()
+  ]);
+  notes[cardId]        = nd.exists ? (nd.data().text || '') : '';
+  chatHistories[cardId] = cd.exists ? (cd.data().messages || []) : [];
+}
+
+/* ── Colour palette & categories ── */
 const PALETTE = [
   {accent:'#E24B4A',bg:'#FCEBEB',text:'#A32D2D'},
   {accent:'#D4537E',bg:'#FBEAF0',text:'#72245E'},
@@ -336,22 +489,12 @@ const CHAT_SUGGESTIONS = {
   Other:['Simple explanation?','Why important?','Recent developments?','Related concepts?'],
 };
 
-/* ── Storage migration ── */
-function migrateStorage() {
-  if (localStorage.getItem('concept_db_unified')) return;
-  for (const k of ['concept_db_v2','concept_db_v1','concept_db']) {
-    const val = localStorage.getItem(k);
-    if (val) { try { if (JSON.parse(val).length>0) { localStorage.setItem('concept_db_unified',val); break; } } catch(e){} }
-  }
-}
-migrateStorage();
-
 /* ── State ── */
-let db            = JSON.parse(localStorage.getItem('concept_db_unified')||'[]');
-let notes         = JSON.parse(localStorage.getItem('concept_notes_v1')||'{}');
-let chatHistories = JSON.parse(localStorage.getItem('concept_chats_v1')||'{}');
-let customCats    = JSON.parse(localStorage.getItem('concept_custom_cats')||'{}');
-let apiKey        = localStorage.getItem('concept_api_key')||'';
+let db            = [];
+let notes         = {};
+let chatHistories = {};
+let customCats    = {};
+let apiKey        = localStorage.getItem('concept_api_key') || '';
 let currentTab    = 'All';
 let searchQ       = '';
 let detailOpen    = null;
@@ -360,30 +503,25 @@ let isChatting    = false;
 let deleteMode    = false;
 let selectedIds   = new Set();
 let newCatColor   = 0;
-let pendingCard   = null; // card awaiting duplicate confirmation
+let pendingCard   = null;
 
-function saveDB()           { localStorage.setItem('concept_db_unified', JSON.stringify(db)); }
-function saveNotes()        { localStorage.setItem('concept_notes_v1',   JSON.stringify(notes)); }
-function saveChatHistories(){ localStorage.setItem('concept_chats_v1',   JSON.stringify(chatHistories)); }
-function saveCustomCats()   { localStorage.setItem('concept_custom_cats',JSON.stringify(customCats)); }
-
-function getCatConfig() { return Object.assign({},DEFAULT_CATS,customCats); }
+function getCatConfig() { return Object.assign({}, DEFAULT_CATS, customCats); }
 function getCfg(cat)    { return getCatConfig()[cat] || getCatConfig().Other; }
 
 function saveApiKey() {
   const val = document.getElementById('api-key-input').value.trim();
   if (!val) return;
-  apiKey = val; localStorage.setItem('concept_api_key',apiKey);
+  apiKey = val;
+  localStorage.setItem('concept_api_key', apiKey);
   document.getElementById('api-banner').classList.add('hidden');
 }
 function checkApiKey() {
-  document.getElementById('api-banner').classList[apiKey?'add':'remove']('hidden');
+  document.getElementById('api-banner').classList[apiKey ? 'add' : 'remove']('hidden');
 }
 
 /* ── Image fetching — Wikipedia only ── */
-function isPersonCategory(cat) { return PERSON_CATS.has(cat)||(customCats[cat]&&customCats[cat].isPerson); }
+function isPersonCategory(cat) { return PERSON_CATS.has(cat) || (customCats[cat] && customCats[cat].isPerson); }
 
-// Fetch image from a specific Wikipedia article title
 async function fetchWikiImage(wikiTitle, preferFace) {
   try {
     const size = preferFace ? 400 : 600;
@@ -396,21 +534,17 @@ async function fetchWikiImage(wikiTitle, preferFace) {
   } catch(e) { return null; }
 }
 
-// Build smart Wikipedia search queries from card content
 function buildWikiQueries(card) {
   const title    = card.title || '';
   const category = (card.category || '').toLowerCase();
   const facts    = card.facts || [];
   const isPerson = card.isPerson || isPersonCategory(card.category);
-
-  const factMap = {};
+  const factMap  = {};
   facts.forEach(f => { factMap[(f.label||'').toLowerCase()] = f.value||''; });
   const year   = factMap['year'] || factMap['years'] || '';
   const genre  = factMap['genre'] || '';
   const origin = factMap['origin'] || factMap['country'] || factMap['nationality'] || '';
-
   const queries = [];
-
   if (isPerson) {
     queries.push(title);
     if (genre)  queries.push(`${title} ${genre}`);
@@ -434,40 +568,21 @@ function buildWikiQueries(card) {
     if (origin) queries.push(`${title} ${origin}`);
     if (genre)  queries.push(`${title} ${genre}`);
   }
-
   return queries;
 }
 
-// Check if a Wikipedia image URL looks like a movie/show poster (not a person photo)
-function isPosterLikeImage(url) {
-  if (!url) return false;
-  const lower = url.toLowerCase();
-  // Posters are usually portrait-oriented and contain keywords like "poster", "cover", "dvd", "blu"
-  return lower.includes('poster') || lower.includes('cover') || lower.includes('dvd')
-      || lower.includes('blu-ray') || lower.includes('film') || lower.includes('logo');
-}
-
-// For movies/shows: search Wikipedia, but skip images that look like person photos
-// Wikipedia article images for films are usually the poster; we want to avoid cast/director pages
 async function fetchFilmImage(card) {
-  const title = card.title || '';
+  const title    = card.title || '';
   const category = (card.category || '').toLowerCase();
-  const factMap = {};
+  const factMap  = {};
   (card.facts||[]).forEach(f => { factMap[(f.label||'').toLowerCase()] = f.value||''; });
   const year = factMap['year'] || factMap['years'] || '';
-
-  // Build queries that target the film/show article specifically, not cast pages
   const queries = category === 'movie'
     ? [`${title} film`, year ? `${title} ${year} film` : null, `${title} movie`].filter(Boolean)
     : [`${title} TV series`, `${title} series`, `${title} television`];
-
   for (const q of queries) {
-    // Try exact article match first
     const img = await fetchWikiImage(q, false);
     if (img) return img;
-
-    // Try search but only accept the first result whose title closely matches the show/film
-    // (avoids picking a cast member's page)
     try {
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*&srlimit=5`;
       const sr   = await fetch(searchUrl);
@@ -476,14 +591,11 @@ async function fetchFilmImage(card) {
       if (!hits) continue;
       for (const hit of hits) {
         const htl = hit.title.toLowerCase();
-        // Only consider articles whose title contains the show/film name
-        // and looks like a film/series article, not a person or character
         const titleWords = title.toLowerCase().split(' ').filter(w=>w.length>2);
         const titleMatch = titleWords.some(w => htl.includes(w));
         const looksLikeFilm = htl.includes('film') || htl.includes('series') || htl.includes('tv')
                            || htl.includes(title.toLowerCase().split(' ')[0]);
         if (!titleMatch && !looksLikeFilm) continue;
-
         const imgUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(hit.title)}&prop=pageimages&format=json&pithumbsize=600&origin=*`;
         const ir = await fetch(imgUrl);
         const id = await ir.json();
@@ -496,28 +608,19 @@ async function fetchFilmImage(card) {
   return null;
 }
 
-// Main: fetch best Wikipedia image using card content
 async function fetchBestImage(card) {
   if (!card) return null;
   const category = (card.category || '').toLowerCase();
   const isPerson = card.isPerson || isPersonCategory(card.category);
-
-  // Movies and TV shows: use film-specific search to get posters, not cast photos
   if (category === 'movie' || category === 'tv show') {
     const img = await fetchFilmImage(card);
     if (img) return img;
   }
-
-  // Everything else: standard search
   const queries = buildWikiQueries(card);
-
-  // 1. Try each query as an exact Wikipedia article title
   for (const q of queries) {
     const img = await fetchWikiImage(q, isPerson);
     if (img) return img;
   }
-
-  // 2. Fall back to Wikipedia full-text search
   for (const q of queries) {
     try {
       const size = isPerson ? 400 : 600;
@@ -536,14 +639,11 @@ async function fetchBestImage(card) {
       }
     } catch(e) {}
   }
-
   return null;
 }
 
 /* ── Duplicate detection ── */
-function normTitle(t) {
-  return t.toLowerCase().replace(/[^a-z0-9]/g,'');
-}
+function normTitle(t) { return t.toLowerCase().replace(/[^a-z0-9]/g,''); }
 function findDuplicate(title) {
   const n = normTitle(title);
   if (!n) return null;
@@ -557,9 +657,9 @@ function findDuplicate(title) {
 function toggleDeleteMode() {
   deleteMode = !deleteMode;
   selectedIds.clear();
-  const btn = document.getElementById('delete-mode-btn');
-  const bar = document.getElementById('delete-mode-bar');
-  const grid= document.getElementById('main-content');
+  const btn  = document.getElementById('delete-mode-btn');
+  const bar  = document.getElementById('delete-mode-bar');
+  const grid = document.getElementById('main-content');
   if (deleteMode) {
     btn.textContent = '✕ Exit select';
     btn.classList.add('danger');
@@ -586,7 +686,6 @@ function toggleCardSelect(id, e) {
   if (selectedIds.has(id)) selectedIds.delete(id);
   else selectedIds.add(id);
   updateDeleteBar();
-  // Toggle visual without full re-render
   const cardEl = document.querySelector(`.card[data-id="${id}"]`);
   if (cardEl) {
     cardEl.classList.toggle('selected', selectedIds.has(id));
@@ -598,81 +697,82 @@ function toggleCardSelect(id, e) {
 function quickDeleteCard(id, e) {
   e.stopPropagation();
   if (!confirm('Remove this card?')) return;
-  db = db.filter(c=>c.id!==id);
+  fsDeleteCard(id).catch(err => console.error('Delete error', err));
+  if (!getActiveCategories().includes(currentTab)) currentTab = 'All';
+  // Optimistic: remove from local db immediately (onSnapshot will confirm)
+  db = db.filter(c => c.id !== id);
   delete notes[id]; delete chatHistories[id];
-  saveDB(); saveNotes(); saveChatHistories();
-  if (!getActiveCategories().includes(currentTab)) currentTab='All';
   renderAll();
 }
 
 function deleteSelected() {
-  if (selectedIds.size===0) return;
+  if (selectedIds.size === 0) return;
   if (!confirm(`Delete ${selectedIds.size} card${selectedIds.size>1?'s':''}? This cannot be undone.`)) return;
-  selectedIds.forEach(id => { delete notes[id]; delete chatHistories[id]; });
-  db = db.filter(c=>!selectedIds.has(c.id));
-  saveDB(); saveNotes(); saveChatHistories();
+  const ids = [...selectedIds];
+  ids.forEach(id => {
+    fsDeleteCard(id).catch(err => console.error('Delete error', err));
+    delete notes[id]; delete chatHistories[id];
+  });
+  db = db.filter(c => !selectedIds.has(c.id));
   selectedIds.clear();
-  if (!getActiveCategories().includes(currentTab)) currentTab='All';
+  if (!getActiveCategories().includes(currentTab)) currentTab = 'All';
   toggleDeleteMode();
 }
 
 /* ── Nav ── */
 function getActiveCategories() {
-  const used=new Set(db.map(c=>c.category));
-  return ['All',...Object.keys(getCatConfig()).filter(c=>used.has(c))];
+  const used = new Set(db.map(c => c.category));
+  return ['All', ...Object.keys(getCatConfig()).filter(c => used.has(c))];
 }
 
 function renderNav() {
-  document.getElementById('nav-tabs').innerHTML = getActiveCategories().map(c=>{
-    const count=c==='All'?db.length:db.filter(x=>x.category===c).length;
+  document.getElementById('nav-tabs').innerHTML = getActiveCategories().map(c => {
+    const count = c==='All' ? db.length : db.filter(x=>x.category===c).length;
     return `<div class="nav-tab ${currentTab===c?'active':''}" onclick="switchTab('${c}')">${c} <span style="font-size:11px;opacity:0.45">${count}</span></div>`;
   }).join('');
 }
 
 function switchTab(cat) {
-  currentTab=cat; searchQ='';
-  const si=document.getElementById('search-input');
-  if(si) si.value='';
+  currentTab = cat; searchQ = '';
+  const si = document.getElementById('search-input');
+  if (si) si.value = '';
   renderAll();
 }
 
 function getFiltered() {
-  let cards=currentTab==='All'?db:db.filter(c=>c.category===currentTab);
+  let cards = currentTab==='All' ? db : db.filter(c=>c.category===currentTab);
   if (searchQ) { const q=searchQ.toLowerCase(); cards=cards.filter(c=>c.title.toLowerCase().includes(q)||c.description.toLowerCase().includes(q)); }
   return cards;
 }
 
 function renderAll() { renderNav(); renderMain(); }
-
 function renderCardsOnly() { renderMain(); }
-
 
 /* ── Main grid ── */
 function renderMain() {
-  const el=document.getElementById('main-content');
-  const filtered=getFiltered();
-  // Update search placeholder only (never rebuild the input itself)
+  const el = document.getElementById('main-content');
+  const filtered = getFiltered();
   const si = document.getElementById('search-input');
   if (si) si.placeholder = currentTab==='All' ? 'Search all cards...' : `Search in ${currentTab}...`;
-  let html='';
+  let html = '';
 
-  if (filtered.length===0&&!isGenerating) {
-    html+=`<div class="empty-state"><div class="empty-icon">${currentTab==='All'?'✦':'📂'}</div>
+  if (filtered.length===0 && !isGenerating) {
+    html += `<div class="empty-state"><div class="empty-icon">${currentTab==='All'?'✦':'📂'}</div>
       <h3>${currentTab==='All'?'Your library is empty':'No '+currentTab+' cards yet'}</h3>
       <p>${currentTab==='All'?'Type any concept above and hit Generate.':'Add cards using the input at the top.'}</p></div>`;
   } else {
-    html+=`<div class="cards-grid ${deleteMode?'delete-mode':''}">`;
-    filtered.forEach(card=>{
-      const cfg=getCfg(card.category);
-      const hasNote=notes[card.id]&&notes[card.id].trim();
-      const isPerson=isPersonCategory(card.category);
-      const catL=(card.category||'').toLowerCase();
-      const imgPos=(isPerson&&catL!=='movie'&&catL!=='tv show')?'center top':'center center';
-      const imgHtml=card.imageUrl?`<img src="${escHtml(card.imageUrl)}" alt="${escHtml(card.title)}" loading="lazy" style="object-position:${imgPos}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:'' ;
-      const phStyle=card.imageUrl?'style="display:none"':'';
-      const isSelected=selectedIds.has(card.id);
+    html += `<div class="cards-grid ${deleteMode?'delete-mode':''}">`;
+    filtered.forEach(card => {
+      const cfg = getCfg(card.category);
+      const hasNote = notes[card.id] && notes[card.id].trim();
+      const isPerson = isPersonCategory(card.category);
+      const catL = (card.category||'').toLowerCase();
+      const imgPos = (isPerson && catL!=='movie' && catL!=='tv show') ? 'center top' : 'center center';
+      const imgHtml = card.imageUrl ? `<img src="${escHtml(card.imageUrl)}" alt="${escHtml(card.title)}" loading="lazy" style="object-position:${imgPos}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '';
+      const phStyle = card.imageUrl ? 'style="display:none"' : '';
+      const isSelected = selectedIds.has(card.id);
 
-      html+=`<div class="card ${isSelected?'selected':''}" data-id="${card.id}" onclick="${deleteMode?`toggleCardSelect('${card.id}',event)`:`openDetail('${card.id}')`}">
+      html += `<div class="card ${isSelected?'selected':''}" data-id="${card.id}" onclick="${deleteMode?`toggleCardSelect('${card.id}',event)`:`openDetail('${card.id}')`}">
         <div class="card-img-wrap">
           ${imgHtml}
           <div class="img-placeholder" ${phStyle}>${cfg.emoji}</div>
@@ -688,30 +788,26 @@ function renderMain() {
         </div>
       </div>`;
     });
-    if (isGenerating) html+=`<div class="loading-card"><div class="img-skel"></div><div class="body-skel"><div class="skel h16 w40" style="margin-bottom:10px"></div><div class="skel w80"></div><div class="skel w60"></div></div></div>`;
-    html+=`</div>`;
+    if (isGenerating) html += `<div class="loading-card"><div class="img-skel"></div><div class="body-skel"><div class="skel h16 w40" style="margin-bottom:10px"></div><div class="skel w80"></div><div class="skel w60"></div></div></div>`;
+    html += `</div>`;
   }
-  if (isGenerating&&filtered.length===0) {
-    html=`<div class="cards-grid"><div class="loading-card"><div class="img-skel"></div><div class="body-skel"><div class="skel h16 w40" style="margin-bottom:10px"></div><div class="skel w80"></div><div class="skel w60"></div></div></div></div>`;
+  if (isGenerating && filtered.length===0) {
+    html = `<div class="cards-grid"><div class="loading-card"><div class="img-skel"></div><div class="body-skel"><div class="skel h16 w40" style="margin-bottom:10px"></div><div class="skel w80"></div><div class="skel w60"></div></div></div></div>`;
   }
-  el.innerHTML=html;
+  el.innerHTML = html;
   if (detailOpen) renderDetail();
 }
 
-function onSearch(v) {
-  searchQ=v;
-  renderMain(); // safe now — search input lives outside #main-content
-}
+function onSearch(v) { searchQ = v; renderMain(); }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ── Duplicate warning modal ── */
 function showDuplicateModal(existingCard, newCardData) {
-  const cfg=getCfg(existingCard.category);
-  const imgEl=existingCard.imageUrl
+  const cfg = getCfg(existingCard.category);
+  const imgEl = existingCard.imageUrl
     ? `<img src="${escHtml(existingCard.imageUrl)}" style="width:100%;height:100%;object-fit:cover;object-position:center top">`
     : cfg.emoji;
-
-  const html=`<div class="overlay" id="dup-overlay" onclick="handleDupOverlayClick(event)">
+  const html = `<div class="overlay" id="dup-overlay" onclick="handleDupOverlayClick(event)">
     <div class="dup-modal" onclick="event.stopPropagation()">
       <div class="dup-modal-header">
         <div class="dup-modal-title">⚠️ Looks like a duplicate</div>
@@ -733,28 +829,27 @@ function showDuplicateModal(existingCard, newCardData) {
       </div>
     </div>
   </div>`;
-
-  const existing=document.getElementById('dup-overlay');
+  const existing = document.getElementById('dup-overlay');
   if (existing) existing.remove();
-  document.getElementById('app').insertAdjacentHTML('beforeend',html);
+  document.getElementById('app').insertAdjacentHTML('beforeend', html);
 }
 
 function handleDupOverlayClick(e) { if (e.target.id==='dup-overlay') cancelDuplicate(); }
 
 function cancelDuplicate() {
-  pendingCard=null;
+  pendingCard = null;
   document.getElementById('dup-overlay')?.remove();
-  isGenerating=false;
-  document.getElementById('gen-btn').disabled=false;
-  document.getElementById('gen-btn').textContent='Generate';
+  isGenerating = false;
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('gen-btn').textContent = 'Generate';
 }
 
 function viewExistingAndClose(id) {
   document.getElementById('dup-overlay')?.remove();
-  pendingCard=null;
-  isGenerating=false;
-  document.getElementById('gen-btn').disabled=false;
-  document.getElementById('gen-btn').textContent='Generate';
+  pendingCard = null;
+  isGenerating = false;
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('gen-btn').textContent = 'Generate';
   openDetail(id);
 }
 
@@ -762,46 +857,41 @@ async function proceedWithNew() {
   document.getElementById('dup-overlay')?.remove();
   if (!pendingCard) return;
   const rawName = pendingCard._rawName || '';
-  pendingCard=null;
-  document.getElementById('main-input').value='';
+  pendingCard = null;
+  document.getElementById('main-input').value = '';
   if (rawName) await doGenerate(rawName);
 }
 
 /* ── Card generation ── */
 async function generate(name) {
-  if (!name.trim()||isGenerating) return;
+  if (!name.trim() || isGenerating) return;
   if (!apiKey) { document.getElementById('api-banner').classList.remove('hidden'); document.getElementById('api-key-input').focus(); return; }
-
-  // Check IMMEDIATELY before any API call — instant, no cost
   const earlyDup = findDuplicate(name);
   if (earlyDup) {
     pendingCard = { _rawName: name };
     showDuplicateModal(earlyDup, null);
     return;
   }
-
   await doGenerate(name);
 }
 
 async function doGenerate(name) {
-  isGenerating=true;
-  const btn=document.getElementById('gen-btn');
-  btn.disabled=true; btn.textContent='...';
+  isGenerating = true;
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true; btn.textContent = '...';
   renderMain();
 
   try {
-    const allCatNames=Object.keys(getCatConfig()).join(', ');
-    // We'll fetch the best image after we know the title/category from the API
-    const firstImg = null;
-    const [resp]=await Promise.all([
-      fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:1500,
-          tools:[{"type":"web_search_20250305","name":"web_search"}],
-          system:`You are a research assistant creating accurate concept cards. You MUST use web_search to find verified information before writing anything. Never invent or guess facts, dates, names, or figures. If a fact cannot be verified from search results, write "Unknown" instead of guessing. IMPORTANT: Never include citation tags, reference markers, <cite> tags, footnotes, or source annotations of any kind in your output. Write clean plain text only.`,
-          messages:[{role:'user',content:`Search the web for accurate, up-to-date information about: "${name}"
+    const allCatNames = Object.keys(getCatConfig()).join(', ');
+    const [resp] = await Promise.all([
+      fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 1500,
+          tools: [{"type":"web_search_20250305","name":"web_search"}],
+          system: `You are a research assistant creating accurate concept cards. You MUST use web_search to find verified information before writing anything. Never invent or guess facts, dates, names, or figures. If a fact cannot be verified from search results, write "Unknown" instead of guessing. IMPORTANT: Never include citation tags, reference markers, <cite> tags, footnotes, or source annotations of any kind in your output. Write clean plain text only.`,
+          messages: [{role:'user',content:`Search the web for accurate, up-to-date information about: "${name}"
 
 Then return ONLY a valid JSON object (no markdown fences, no extra text). Use ONLY facts you found and verified from your search — do not add anything not confirmed by search results:
 {
@@ -817,109 +907,104 @@ Then return ONLY a valid JSON object (no markdown fences, no extra text). Use ON
       }),
     ]);
 
-    if (!resp.ok) { const e=await resp.json(); throw new Error(e.error?.message||resp.statusText); }
-    const data=await resp.json();
-    // Extract only text blocks (skip tool_use and tool_result blocks)
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.statusText); }
+    const data = await resp.json();
     const rawText = data.content.filter(b=>b.type==='text').map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
     if (!rawText) throw new Error('No card content returned. The topic may not have enough verified information.');
-    const parsed=JSON.parse(rawText);
-    // Strip any citation tags like <cite index="...">...</cite> from all string fields
+    const parsed = JSON.parse(rawText);
     function stripCites(obj) {
       if (typeof obj === 'string') return obj.replace(/<cite[^>]*>|<\/cite>/g,'').trim();
       if (Array.isArray(obj)) return obj.map(stripCites);
-      if (obj && typeof obj === 'object') {
-        const out = {};
-        for (const k in obj) out[k] = stripCites(obj[k]);
-        return out;
-      }
+      if (obj && typeof obj === 'object') { const out={}; for (const k in obj) out[k]=stripCites(obj[k]); return out; }
       return obj;
     }
     const clean = stripCites(parsed);
     Object.assign(parsed, clean);
 
-    const isPerson=parsed.isPerson===true||isPersonCategory(parsed.category||'');
-
-    // Build a full card object first so fetchBestImage can use all content
-    const card={
-      id:Date.now().toString(),
-      title:parsed.title||name,
-      category:parsed.category||'Other',
-      description:parsed.description||'',
-      facts:parsed.facts||[],
-      related:parsed.related||[],
+    const isPerson = parsed.isPerson === true || isPersonCategory(parsed.category || '');
+    const card = {
+      id: Date.now().toString(),
+      title: parsed.title || name,
+      category: parsed.category || 'Other',
+      description: parsed.description || '',
+      facts: parsed.facts || [],
+      related: parsed.related || [],
       isPerson,
-      imageUrl:null,
-      date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+      imageUrl: null,
+      date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
     };
 
-    // Fetch image using full card content for smarter matching
     card.imageUrl = await fetchBestImage(card) || null;
 
-    db.unshift(card); saveDB();
-    if (currentTab!=='All'&&currentTab!==card.category) currentTab='All';
-    detailOpen=card.id;
+    // Save to Firestore (onSnapshot will update db automatically)
+    await fsAddCard(card);
 
-  } catch(e) { alert('Error: '+e.message); console.error(e); }
+    if (currentTab !== 'All' && currentTab !== card.category) currentTab = 'All';
+    detailOpen = card.id;
 
-  isGenerating=false;
-  btn.disabled=false; btn.textContent='Generate';
-  document.getElementById('main-input').value='';
+  } catch(e) { alert('Error: ' + e.message); console.error(e); }
+
+  isGenerating = false;
+  btn.disabled = false; btn.textContent = 'Generate';
+  document.getElementById('main-input').value = '';
   renderAll();
 }
+
 /* ── Detail panel ── */
-function openDetail(id) {
-  detailOpen=id;
+async function openDetail(id) {
+  detailOpen = id;
+  // Load note and chat from Firestore if not already in memory
+  if (notes[id] === undefined || chatHistories[id] === undefined) {
+    await loadNoteAndChat(id);
+  }
   renderDetail();
-  // If card has no image, fetch one now and update when it arrives
-  const card = db.find(c=>c.id===id);
+  // If card has no image, fetch one silently
+  const card = db.find(c => c.id === id);
   if (card && !card.imageUrl) {
     fetchBestImage(card)
-      .then(img => {
+      .then(async img => {
         if (img) {
           card.imageUrl = img;
-          saveDB();
-          // Update the grid card image silently
+          await fsUpdateCard(card);
           const cardEl = document.querySelector(`.card[data-id="${id}"]`);
           if (cardEl) {
             const wrap = cardEl.querySelector('.card-img-wrap');
             const placeholder = wrap && wrap.querySelector('.img-placeholder');
             if (wrap && !wrap.querySelector('img')) {
               const newImg = document.createElement('img');
-              newImg.src = img;
-              newImg.alt = card.title;
-              newImg.style.objectPosition = isPerson ? 'center top' : 'center center';
+              newImg.src = img; newImg.alt = card.title;
+              newImg.style.objectPosition = card.isPerson ? 'center top' : 'center center';
               newImg.onerror = function(){ this.style.display='none'; if(placeholder) placeholder.style.display='flex'; };
               wrap.insertBefore(newImg, wrap.firstChild);
-              if (placeholder) placeholder.style.display='none';
+              if (placeholder) placeholder.style.display = 'none';
             }
           }
-          // Re-render detail panel to show the hero image
           if (detailOpen === id) renderDetail();
         }
       })
-      .catch(()=>{});
+      .catch(() => {});
   }
 }
 
 function closeDetail() {
-  detailOpen=null; isChatting=false;
+  detailOpen = null; isChatting = false;
   document.getElementById('overlay')?.remove();
 }
 
 function renderDetail() {
-  const card=db.find(c=>c.id===detailOpen);
+  const card = db.find(c => c.id === detailOpen);
   if (!card) return;
-  const cfg=getCfg(card.category);
-  const note=notes[card.id]||'';
-  const history=chatHistories[card.id]||[];
-  const suggestions=CHAT_SUGGESTIONS[card.category]||CHAT_SUGGESTIONS.Other;
-  const isPerson=card.isPerson||isPersonCategory(card.category);
-  const imgPos=isPerson?'center top':'center center';
-  const allCatNames=Object.keys(getCatConfig());
-  const catOptions=allCatNames.map(c=>`<option value="${escHtml(c)}" ${c===card.category?'selected':''}>${c}</option>`).join('');
+  const cfg = getCfg(card.category);
+  const note = notes[card.id] || '';
+  const history = chatHistories[card.id] || [];
+  const suggestions = CHAT_SUGGESTIONS[card.category] || CHAT_SUGGESTIONS.Other;
+  const isPerson = card.isPerson || isPersonCategory(card.category);
+  const imgPos = isPerson ? 'center top' : 'center center';
+  const allCatNames = Object.keys(getCatConfig());
+  const catOptions = allCatNames.map(c=>`<option value="${escHtml(c)}" ${c===card.category?'selected':''}>${c}</option>`).join('');
 
-  const heroHtml=card.imageUrl
-    ?`<div class="detail-hero">
+  const heroHtml = card.imageUrl
+    ? `<div class="detail-hero">
         <img src="${escHtml(card.imageUrl)}" alt="${escHtml(card.title)}" style="object-position:${imgPos}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="detail-hero-placeholder" style="display:none">${cfg.emoji}</div>
         <div class="detail-hero-overlay"></div>
@@ -935,7 +1020,7 @@ function renderDetail() {
           <button class="change-cat-btn" onclick="changeCategory('${card.id}')">Update</button>
         </div>
       </div>`
-    :`<div class="detail-header">
+    : `<div class="detail-header">
         <div class="detail-top-row">
           <div class="detail-cat-badge" style="background:${cfg.bg};color:${cfg.text}">${cfg.emoji} ${card.category}</div>
           <button class="detail-close-fallback" onclick="closeDetail()">✕</button>
@@ -949,17 +1034,17 @@ function renderDetail() {
         </div>
       </div>`;
 
-  const factsHtml=(card.facts&&card.facts.length)
-    ?`<div class="detail-section"><div class="detail-section-title">Key facts</div><div class="facts-grid">${card.facts.map(f=>`<div class="fact-item"><div class="fact-label">${escHtml(f.label)}</div><div class="fact-value">${escHtml(f.value)}</div></div>`).join('')}</div></div>`:'' ;
+  const factsHtml = (card.facts && card.facts.length)
+    ? `<div class="detail-section"><div class="detail-section-title">Key facts</div><div class="facts-grid">${card.facts.map(f=>`<div class="fact-item"><div class="fact-label">${escHtml(f.label)}</div><div class="fact-value">${escHtml(f.value)}</div></div>`).join('')}</div></div>` : '';
 
-  const relatedHtml=(card.related&&card.related.length)
-    ?`<div class="detail-section"><div class="detail-section-title">Related — click to explore</div><div class="related-chips">${card.related.map(r=>`<div class="related-chip" onclick="generateFromRelated('${escHtml(r)}')">${escHtml(r)} ↗</div>`).join('')}</div></div>`:'' ;
+  const relatedHtml = (card.related && card.related.length)
+    ? `<div class="detail-section"><div class="detail-section-title">Related — click to explore</div><div class="related-chips">${card.related.map(r=>`<div class="related-chip" onclick="generateFromRelated('${escHtml(r)}')">${escHtml(r)} ↗</div>`).join('')}</div></div>` : '';
 
-  const chatMsgsHtml=history.map(m=>`<div class="chat-bubble ${m.role==='user'?'bubble-user':'bubble-ai'}"><div class="bubble-text">${escHtml(m.content)}</div></div>`).join('');
-  const suggestHtml=history.length===0?`<div class="chat-suggestions" id="chat-suggestions">${suggestions.map(s=>`<div class="chat-suggestion" onclick="useSuggestion(this,'${card.id}')">${escHtml(s)}</div>`).join('')}</div>`:'';
-  const clearBtn=history.length>0?`<button class="chat-clear-btn" onclick="clearChat('${card.id}')">Clear</button>`:'';
+  const chatMsgsHtml = history.map(m=>`<div class="chat-bubble ${m.role==='user'?'bubble-user':'bubble-ai'}"><div class="bubble-text">${escHtml(m.content)}</div></div>`).join('');
+  const suggestHtml  = history.length===0 ? `<div class="chat-suggestions" id="chat-suggestions">${suggestions.map(s=>`<div class="chat-suggestion" onclick="useSuggestion(this,'${card.id}')">${escHtml(s)}</div>`).join('')}</div>` : '';
+  const clearBtn     = history.length > 0 ? `<button class="chat-clear-btn" onclick="clearChat('${card.id}')">Clear</button>` : '';
 
-  const html=`<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  const html = `<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
     <div class="detail-panel" onclick="event.stopPropagation()">
       ${heroHtml}${factsHtml}
       <div class="detail-section">
@@ -992,124 +1077,130 @@ function renderDetail() {
   </div>`;
 
   document.getElementById('overlay')?.remove();
-  document.getElementById('app').insertAdjacentHTML('beforeend',html);
-  const msgs=document.getElementById('chat-messages');
-  if (msgs&&history.length>0) msgs.scrollTop=msgs.scrollHeight;
+  document.getElementById('app').insertAdjacentHTML('beforeend', html);
+  const msgs = document.getElementById('chat-messages');
+  if (msgs && history.length > 0) msgs.scrollTop = msgs.scrollHeight;
 }
 
-function changeCategory(cardId) {
-  const sel=document.getElementById('cat-select-'+cardId);
+async function changeCategory(cardId) {
+  const sel = document.getElementById('cat-select-' + cardId);
   if (!sel) return;
-  const card=db.find(c=>c.id===cardId);
-  if (!card||card.category===sel.value) return;
-  card.category=sel.value; saveDB();
-  closeDetail(); detailOpen=cardId; renderAll();
+  const card = db.find(c => c.id === cardId);
+  if (!card || card.category === sel.value) return;
+  card.category = sel.value;
+  await fsUpdateCard(card);
+  closeDetail(); detailOpen = cardId; renderAll();
 }
 
 function handleOverlayClick(e) { if (e.target.id==='overlay') closeDetail(); }
 function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; }
-function handleChatKey(e,id) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat(id);} }
-function useSuggestion(el,id) {
-  const input=document.getElementById('chat-input');
-  if (input) { input.value=el.textContent.trim(); autoResize(input); }
+function handleChatKey(e, id) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendChat(id); } }
+function useSuggestion(el, id) {
+  const input = document.getElementById('chat-input');
+  if (input) { input.value = el.textContent.trim(); autoResize(input); }
   sendChat(id);
 }
 
 /* ── AI Chat ── */
 async function sendChat(cardId) {
   if (isChatting) return;
-  const input=document.getElementById('chat-input');
-  const sendBtn=document.getElementById('chat-send-btn');
-  const question=input?input.value.trim():'';
+  const input   = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send-btn');
+  const question = input ? input.value.trim() : '';
   if (!question) return;
   if (!apiKey) { document.getElementById('api-banner').classList.remove('hidden'); return; }
-  const card=db.find(c=>c.id===cardId);
+  const card = db.find(c => c.id === cardId);
   if (!card) return;
 
-  isChatting=true;
-  if (input) { input.value=''; input.style.height='auto'; }
-  if (sendBtn) { sendBtn.disabled=true; sendBtn.textContent='...'; }
+  isChatting = true;
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '...'; }
 
-  if (!chatHistories[cardId]) chatHistories[cardId]=[];
-  chatHistories[cardId].push({role:'user',content:question});
+  if (!chatHistories[cardId]) chatHistories[cardId] = [];
+  chatHistories[cardId].push({role:'user', content:question});
 
-  const msgs=document.getElementById('chat-messages');
+  const msgs = document.getElementById('chat-messages');
   if (msgs) {
     document.getElementById('chat-suggestions')?.remove();
-    const ub=document.createElement('div');
-    ub.className='chat-bubble bubble-user';
-    ub.innerHTML=`<div class="bubble-text">${escHtml(question)}</div>`;
+    const ub = document.createElement('div');
+    ub.className = 'chat-bubble bubble-user';
+    ub.innerHTML = `<div class="bubble-text">${escHtml(question)}</div>`;
     msgs.appendChild(ub);
-    const tb=document.createElement('div');
-    tb.className='chat-bubble bubble-ai'; tb.id='thinking-bubble';
-    tb.innerHTML=`<div class="chat-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+    const tb = document.createElement('div');
+    tb.className = 'chat-bubble bubble-ai'; tb.id = 'thinking-bubble';
+    tb.innerHTML = `<div class="chat-thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
     msgs.appendChild(tb);
-    msgs.scrollTop=msgs.scrollHeight;
+    msgs.scrollTop = msgs.scrollHeight;
   }
 
   try {
-    const sys=`You are a knowledgeable assistant helping a user learn about "${card.title}" (${card.category}). Description: ${card.description}. Facts: ${(card.facts||[]).map(f=>f.label+': '+f.value).join(', ')}. Be concise (2-4 sentences), conversational, and engaging.`;
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:sys,messages:chatHistories[cardId].map(m=>({role:m.role,content:m.content}))})
+    const sys = `You are a knowledgeable assistant helping a user learn about "${card.title}" (${card.category}). Description: ${card.description}. Facts: ${(card.facts||[]).map(f=>f.label+': '+f.value).join(', ')}. Be concise (2-4 sentences), conversational, and engaging.`;
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:600, system:sys, messages:chatHistories[cardId].map(m=>({role:m.role,content:m.content}))})
     });
-    if (!resp.ok) { const e=await resp.json(); throw new Error(e.error?.message||resp.statusText); }
-    const data=await resp.json();
-    const answer=data.content.map(b=>b.text||'').join('').trim();
-    chatHistories[cardId].push({role:'assistant',content:answer});
-    saveChatHistories();
-    const tb=document.getElementById('thinking-bubble');
-    if (tb) { tb.innerHTML=`<div class="bubble-text">${escHtml(answer)}</div>`; tb.id=''; }
-    if (msgs) msgs.scrollTop=msgs.scrollHeight;
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.statusText); }
+    const data   = await resp.json();
+    const answer = data.content.map(b=>b.text||'').join('').trim();
+    chatHistories[cardId].push({role:'assistant', content:answer});
+    await fsSaveChat(cardId, chatHistories[cardId]);
+    const tb = document.getElementById('thinking-bubble');
+    if (tb) { tb.innerHTML = `<div class="bubble-text">${escHtml(answer)}</div>`; tb.id = ''; }
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
   } catch(e) {
-    const tb=document.getElementById('thinking-bubble');
-    if (tb) { tb.innerHTML=`<div class="bubble-text" style="color:#c23030">Error: ${escHtml(e.message)}</div>`; tb.id=''; }
+    const tb = document.getElementById('thinking-bubble');
+    if (tb) { tb.innerHTML = `<div class="bubble-text" style="color:#c23030">Error: ${escHtml(e.message)}</div>`; tb.id = ''; }
     chatHistories[cardId].pop();
     console.error(e);
   }
 
-  isChatting=false;
-  if (sendBtn) { sendBtn.disabled=false; sendBtn.textContent='Ask ↗'; }
+  isChatting = false;
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Ask ↗'; }
   document.getElementById('chat-input')?.focus();
 }
 
-function clearChat(id) { delete chatHistories[id]; saveChatHistories(); renderDetail(); }
+async function clearChat(id) {
+  delete chatHistories[id];
+  await fsSaveChat(id, []);
+  renderDetail();
+}
 
-function saveNote(id) {
-  const area=document.getElementById('note-area');
+async function saveNote(id) {
+  const area = document.getElementById('note-area');
   if (!area) return;
-  notes[id]=area.value; saveNotes();
-  const msg=document.getElementById('saved-msg');
-  if (msg) { msg.classList.add('show'); setTimeout(()=>msg.classList.remove('show'),2000); }
+  notes[id] = area.value;
+  await fsSaveNote(id, area.value);
+  const msg = document.getElementById('saved-msg');
+  if (msg) { msg.classList.add('show'); setTimeout(() => msg.classList.remove('show'), 2000); }
 }
 
 function deleteCard(id) {
   if (!confirm('Remove this card?')) return;
-  db=db.filter(c=>c.id!==id);
+  fsDeleteCard(id).catch(err => console.error('Delete error', err));
+  db = db.filter(c => c.id !== id);
   delete notes[id]; delete chatHistories[id];
-  saveDB(); saveNotes(); saveChatHistories();
   closeDetail();
-  if (!getActiveCategories().includes(currentTab)) currentTab='All';
+  if (!getActiveCategories().includes(currentTab)) currentTab = 'All';
   renderAll();
 }
 
 function generateFromRelated(name) {
   closeDetail();
-  document.getElementById('main-input').value=name;
+  document.getElementById('main-input').value = name;
   generate(name);
 }
 
 /* ── Category modal ── */
 function openCatModal() {
   document.getElementById('overlay')?.remove();
-  const all=getCatConfig();
-  const swatches=PALETTE.map((p,i)=>`<div class="color-swatch ${i===newCatColor?'selected':''}" style="background:${p.accent}" onclick="selectColor(${i})"></div>`).join('');
-  const catRows=Object.entries(all).map(([name,cfg])=>{
-    const count=db.filter(c=>c.category===name).length;
-    const isBuiltin=cfg.builtin;
-    const editBtn=`<button class="cat-row-btn" onclick="startEditCat('${escHtml(name)}')">Rename</button>`;
-    const delBtn=!isBuiltin?`<button class="cat-row-btn danger" onclick="deleteCat('${escHtml(name)}')">Delete</button>`:'';
+  const all = getCatConfig();
+  const swatches = PALETTE.map((p,i) => `<div class="color-swatch ${i===newCatColor?'selected':''}" style="background:${p.accent}" onclick="selectColor(${i})"></div>`).join('');
+  const catRows = Object.entries(all).map(([name, cfg]) => {
+    const count    = db.filter(c => c.category===name).length;
+    const isBuiltin = cfg.builtin;
+    const editBtn  = `<button class="cat-row-btn" onclick="startEditCat('${escHtml(name)}')">Rename</button>`;
+    const delBtn   = !isBuiltin ? `<button class="cat-row-btn danger" onclick="deleteCat('${escHtml(name)}')">Delete</button>` : '';
     return `<div class="cat-row" id="catrow-${escHtml(name)}">
       <div class="cat-row-emoji">${cfg.emoji}</div>
       <div class="cat-row-name">${escHtml(name)}</div>
@@ -1118,7 +1209,7 @@ function openCatModal() {
     </div>`;
   }).join('');
 
-  const html=`<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  const html = `<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
     <div class="modal-panel" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-title">Manage categories</div>
@@ -1144,93 +1235,94 @@ function openCatModal() {
       </div>
     </div>
   </div>`;
-  document.getElementById('app').insertAdjacentHTML('beforeend',html);
+  document.getElementById('app').insertAdjacentHTML('beforeend', html);
 }
 
 function closeCatModal() { document.getElementById('overlay')?.remove(); }
 
 function selectColor(idx) {
-  newCatColor=idx;
-  document.querySelectorAll('.color-swatch').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+  newCatColor = idx;
+  document.querySelectorAll('.color-swatch').forEach((el,i) => el.classList.toggle('selected', i===idx));
 }
 
-function addCustomCat() {
-  const emoji=(document.getElementById('new-cat-emoji').value.trim()||'🏷️');
-  const name=document.getElementById('new-cat-name').value.trim();
-  const isPerson=document.getElementById('new-cat-person').checked;
+async function addCustomCat() {
+  const emoji    = (document.getElementById('new-cat-emoji').value.trim() || '🏷️');
+  const name     = document.getElementById('new-cat-name').value.trim();
+  const isPerson = document.getElementById('new-cat-person').checked;
   if (!name) { alert('Please enter a category name.'); return; }
   if (getCatConfig()[name]) { alert('A category with this name already exists.'); return; }
-  const pal=PALETTE[newCatColor];
-  customCats[name]={accent:pal.accent,bg:pal.bg,text:pal.text,emoji,isPerson};
-  saveCustomCats();
+  const pal = PALETTE[newCatColor];
+  customCats[name] = {accent:pal.accent, bg:pal.bg, text:pal.text, emoji, isPerson};
+  await fsSaveCats();
   if (isPerson) PERSON_CATS.add(name);
   closeCatModal(); renderAll(); openCatModal();
 }
 
-function deleteCat(name) {
-  const count=db.filter(c=>c.category===name).length;
-  if (count>0&&!confirm(`Delete "${name}"? ${count} card(s) will move to "Other".`)) return;
-  db.forEach(c=>{ if(c.category===name) c.category='Other'; });
+async function deleteCat(name) {
+  const count = db.filter(c => c.category===name).length;
+  if (count > 0 && !confirm(`Delete "${name}"? ${count} card(s) will move to "Other".`)) return;
+  const updates = db.filter(c => c.category===name).map(c => {
+    c.category = 'Other';
+    return fsUpdateCard(c);
+  });
+  await Promise.all(updates);
   delete customCats[name]; PERSON_CATS.delete(name);
-  saveDB(); saveCustomCats();
+  await fsSaveCats();
   closeCatModal();
-  if (currentTab===name) currentTab='All';
+  if (currentTab === name) currentTab = 'All';
   renderAll(); openCatModal();
 }
 
 function startEditCat(name) {
-  const row=document.getElementById('catrow-'+name);
+  const row = document.getElementById('catrow-' + name);
   if (!row) return;
-  const nameDiv=row.querySelector('.cat-row-name');
-  const actDiv=row.querySelector('.cat-row-actions');
-  nameDiv.innerHTML=`<input class="cat-edit-input" id="cat-edit-input" value="${escHtml(name)}" onclick="event.stopPropagation()">`;
-  actDiv.innerHTML=`<button class="cat-row-btn" onclick="confirmEditCat('${escHtml(name)}')">Save</button>
-                    <button class="cat-row-btn" onclick="closeCatModal();openCatModal()">Cancel</button>`;
+  const nameDiv = row.querySelector('.cat-row-name');
+  const actDiv  = row.querySelector('.cat-row-actions');
+  nameDiv.innerHTML = `<input class="cat-edit-input" id="cat-edit-input" value="${escHtml(name)}" onclick="event.stopPropagation()">`;
+  actDiv.innerHTML  = `<button class="cat-row-btn" onclick="confirmEditCat('${escHtml(name)}')">Save</button>
+                       <button class="cat-row-btn" onclick="closeCatModal();openCatModal()">Cancel</button>`;
   document.getElementById('cat-edit-input')?.focus();
 }
 
-function confirmEditCat(oldName) {
-  const input=document.getElementById('cat-edit-input');
-  const newName=input?input.value.trim():oldName;
-  if (!newName||newName===oldName) { closeCatModal(); openCatModal(); return; }
-  if (getCatConfig()[newName]&&newName!==oldName) { alert('That name already exists.'); return; }
-  const cfg=getCatConfig()[oldName];
-  if (customCats[oldName]) { customCats[newName]=customCats[oldName]; delete customCats[oldName]; }
-  else { customCats[newName]={...cfg,builtin:false}; }
-  db.forEach(c=>{ if(c.category===oldName) c.category=newName; });
+async function confirmEditCat(oldName) {
+  const input   = document.getElementById('cat-edit-input');
+  const newName = input ? input.value.trim() : oldName;
+  if (!newName || newName === oldName) { closeCatModal(); openCatModal(); return; }
+  if (getCatConfig()[newName] && newName !== oldName) { alert('That name already exists.'); return; }
+  const cfg = getCatConfig()[oldName];
+  if (customCats[oldName]) { customCats[newName] = customCats[oldName]; delete customCats[oldName]; }
+  else { customCats[newName] = {...cfg, builtin:false}; }
+  const updates = db.filter(c => c.category===oldName).map(c => {
+    c.category = newName;
+    return fsUpdateCard(c);
+  });
+  await Promise.all(updates);
   if (PERSON_CATS.has(oldName)) { PERSON_CATS.delete(oldName); PERSON_CATS.add(newName); }
-  saveDB(); saveCustomCats();
-  if (currentTab===oldName) currentTab=newName;
+  await fsSaveCats();
+  if (currentTab === oldName) currentTab = newName;
   closeCatModal(); renderAll(); openCatModal();
 }
 
-/* ── Auto-fetch missing images silently on load ── */
+/* ── Auto-fetch missing images on load ── */
 async function autoFetchMissingImages() {
   const missing = db.filter(c => !c.imageUrl);
   if (missing.length === 0) return;
-
   for (const card of missing) {
     try {
-      const isPerson = card.isPerson || isPersonCategory(card.category);
-      let img = null;
-
-      img = await fetchBestImage(card);
-
+      const img = await fetchBestImage(card);
       if (img) {
         card.imageUrl = img;
-        saveDB();
-        // Update just this card's image in the DOM without re-rendering everything
+        await fsUpdateCard(card);
         const cardEl = document.querySelector(`.card[data-id="${card.id}"]`);
         if (cardEl) {
           const wrap = cardEl.querySelector('.card-img-wrap');
           const placeholder = wrap ? wrap.querySelector('.img-placeholder') : null;
           const existingImg = wrap ? wrap.querySelector('img') : null;
           if (wrap && !existingImg) {
+            const isPerson = card.isPerson || isPersonCategory(card.category);
             const imgPos = isPerson ? 'center top' : 'center center';
             const newImg = document.createElement('img');
-            newImg.src = img;
-            newImg.alt = card.title;
-            newImg.loading = 'lazy';
+            newImg.src = img; newImg.alt = card.title; newImg.loading = 'lazy';
             newImg.style.objectPosition = imgPos;
             newImg.onerror = function() { this.style.display='none'; if(placeholder) placeholder.style.display='flex'; };
             wrap.insertBefore(newImg, wrap.firstChild);
@@ -1242,60 +1334,12 @@ async function autoFetchMissingImages() {
   }
 }
 
-/* ── Fetch photo for a single card ── */
-async function fetchPhotoForCard(cardId, e) {
-  e.stopPropagation();
-  const card = db.find(c => c.id === cardId);
-  if (!card) return;
-
-  const btn = e.target;
-  btn.textContent = '⏳';
-  btn.classList.add('loading');
-
-  try {
-    let img = await fetchBestImage(card);
-
-    if (img) {
-      card.imageUrl = img;
-      saveDB();
-      // Re-render just this card in the grid
-      const cardEl = document.querySelector(`.card[data-id="${cardId}"]`);
-      if (cardEl) {
-        const wrap = cardEl.querySelector('.card-img-wrap');
-        const placeholder = wrap && wrap.querySelector('.img-placeholder');
-        const fetchBtn = wrap && wrap.querySelector('.card-fetch-photo-btn');
-        if (wrap && !wrap.querySelector('img')) {
-          const newImg = document.createElement('img');
-          newImg.src = img;
-          newImg.alt = card.title;
-          newImg.style.objectPosition = isPerson ? 'center top' : 'center center';
-          newImg.onerror = function(){ this.style.display='none'; if(placeholder) placeholder.style.display='flex'; };
-          wrap.insertBefore(newImg, wrap.firstChild);
-          if (placeholder) placeholder.style.display = 'none';
-          if (fetchBtn) fetchBtn.remove();
-        }
-      }
-    } else {
-      btn.textContent = '📷 Get photo';
-      btn.classList.remove('loading');
-      alert('Could not find a photo for this card. Try editing the title to be more specific.');
-    }
-  } catch(err) {
-    btn.textContent = '📷 Get photo';
-    btn.classList.remove('loading');
-    console.error(err);
-  }
-}
-
-/* ── Listeners ── */
-document.getElementById('gen-btn').addEventListener('click',()=>generate(document.getElementById('main-input').value.trim()));
-document.getElementById('main-input').addEventListener('keydown',e=>{ if(e.key==='Enter') generate(e.target.value.trim()); });
-document.getElementById('api-key-input').addEventListener('keydown',e=>{ if(e.key==='Enter') saveApiKey(); });
-
-checkApiKey();
-renderAll();
-// Silently fetch images for any cards that don't have one yet
-autoFetchMissingImages();
+/* ── Listeners (set up after DOM is ready) ── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('gen-btn').addEventListener('click', () => generate(document.getElementById('main-input').value.trim()));
+  document.getElementById('main-input').addEventListener('keydown', e => { if (e.key==='Enter') generate(e.target.value.trim()); });
+  document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key==='Enter') saveApiKey(); });
+});
 </script>
 </body>
 </html>
